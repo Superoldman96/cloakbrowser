@@ -97,16 +97,11 @@ your code ──> HumanizedPage ──┬─ intercepted member ─> humanize en
 ## Installation
 
 ```bash
-# add to your project
 dotnet add package CloakBrowser
-
-# the patched Chromium binary downloads automatically on first launch,
-# or pre-install it:
-dotnet run --project src/CloakBrowser.Cli -- install
 ```
 
-The binary is cached under `~/.cloakbrowser` (override with
-`CLOAKBROWSER_CACHE_DIR`).
+The patched Chromium binary downloads automatically on first launch, cached under
+`~/.cloakbrowser` (override with `CLOAKBROWSER_CACHE_DIR`).
 
 ---
 
@@ -330,6 +325,14 @@ var page = await ctx.NewPageAsync();
 > `--fingerprint-locale`, `--fingerprint-timezone`) - *not* detectable CDP
 > emulation - matching the Python wrapper.
 
+```csharp
+// persistent profile - cookies / localStorage survive across runs, so the
+// browser looks like a returning user instead of a fresh incognito session
+await using var ctx = await CloakLauncher.LaunchPersistentContextAsync("./profile",
+    new LaunchContextOptions { Headless = false });
+var page = await ctx.NewPageAsync();
+```
+
 ---
 
 ## Options reference
@@ -354,22 +357,30 @@ var page = await ctx.NewPageAsync();
 
 ### CloakBrowser Pro
 
-Pass a `LicenseKey` (or set `CLOAKBROWSER_LICENSE_KEY`, or write the key to
-`~/.cloakbrowser/license.key`) to download the latest **Pro** binary from
-cloakbrowser.dev. Without a key, the free binary downloads from GitHub Releases
-exactly as before. License validation is cached locally for 24h, and the Pro
-binary is authenticated with the **same pinned Ed25519 signature** as the free
-binary. A valid key whose Pro download or signature check fails surfaces a clear
-error rather than silently downgrading to the free binary. `Download.BinaryInfo()`
-exposes a `Tier` field (`"pro"` / `"free"`) and `License.ValidateLicense` /
-`License.LicenseInfo` mirror the Python `validate_license` / `LicenseInfo` exports.
+CloakBrowser ships in two tiers:
+
+- **Free (v146)** — free forever on [GitHub Releases](https://github.com/CloakHQ/cloakbrowser/releases). Unlimited sessions. Works today, goes stale as detection evolves.
+- **Pro (latest, v148)** — the newest patches and Chromium upgrades first, so detection stays green as anti-bot systems change. Linux + Windows (macOS coming).
+
+Pro plans → **[cloakbrowser.dev](https://cloakbrowser.dev)**
+
+Activate with a license key — the `LicenseKey` option, the `CLOAKBROWSER_LICENSE_KEY`
+env var, or `~/.cloakbrowser/license.key`:
 
 ```csharp
 await using var browser = await CloakLauncher.LaunchAsync(new LaunchOptions
 {
-    LicenseKey = "ck_live_...",   // or via CLOAKBROWSER_LICENSE_KEY / ~/.cloakbrowser/license.key
+    LicenseKey = "cb_xxxxxxxx",   // or via CLOAKBROWSER_LICENSE_KEY / ~/.cloakbrowser/license.key
 });
 ```
+
+A valid key downloads the latest Pro binary from cloakbrowser.dev; without one, the
+free binary downloads from GitHub Releases. Validation is cached locally for 24h, and
+the Pro binary is authenticated with the **same pinned Ed25519 signature** as the free
+binary — a key whose Pro download or signature check fails surfaces a clear error
+rather than silently downgrading. `Download.BinaryInfo()` exposes a `Tier` field
+(`"pro"` / `"free"`); `License.ValidateLicense` / `License.LicenseInfo` mirror the
+Python `validate_license` / `LicenseInfo` exports.
 
 ---
 
@@ -546,6 +557,12 @@ await using var browser = await CloakLauncher.LaunchAsync(new LaunchOptions
 ---
 
 ## CLI
+
+Installed via NuGet you don't need a CLI — the binary auto-downloads on first launch
+and updates in the background, and `Download.BinaryInfo()` reports the installed
+version, path, and tier (`Download.EnsureBinary()` pre-fetches it on demand).
+
+When running from a clone of the repo, a small CLI does the same:
 
 ```bash
 dotnet run --project src/CloakBrowser.Cli -- install      # download the binary
